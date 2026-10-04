@@ -10,3 +10,11 @@ pub struct RegistryConfig {
     pub tree_depth : u8,
     pub bump : u8   
 }
+
+#[account]
+#[derive(InitSpace)]
+pub struct VerifierConfig {
+    pub verifier_key : Pubkey ,
+    pub is_active : bool ,
+    pub bump : u8
+}

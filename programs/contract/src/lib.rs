@@ -19,5 +19,10 @@ pub mod contract {
     pub fn initialze_registry(ctx : Context<InitalizeRegistry>) -> Result<()>{
         ctx.accounts.initialize_registry(&ctx.bumps)
     }
- 
+
+    pub fn register_verifier(ctx : Context<RegisterVerifier>, verifier_key : Pubkey , is_active : bool) -> Result<()>{
+        ctx.accounts.register_verifier(verifier_key, is_active, &ctx.bumps)
+    }
+
+    
 }
