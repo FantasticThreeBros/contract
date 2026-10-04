@@ -1,8 +1,12 @@
 use anchor_lang::prelude::*;
 
+
 #[account]
 #[derive(InitSpace)]
-pub struct Counter {
-    pub count: u64,
-    pub authority: Pubkey,
+pub struct RegistryConfig {
+    pub admin : Pubkey,
+    pub is_frozen : bool,
+    pub merkle_root : [u8;32],
+    pub tree_depth : u8,
+    pub bump : u8   
 }

@@ -15,11 +15,9 @@ declare_id!("75Eb9EvhBEtrqDzEz9Wz7WrYyPi9ZN8sXD8dJ7PmMcPK");
 pub mod contract {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        crate::instructions::initialize::handle_initialize(ctx)
-    }
 
-    pub fn increment(ctx: Context<Increment>) -> Result<()> {
-        crate::instructions::increment::handle_increment(ctx)
+    pub fn initialze_registry(ctx : Context<InitalizeRegistry>) -> Result<()>{
+        ctx.accounts.initialize_registry(&ctx.bumps)
     }
+ 
 }
