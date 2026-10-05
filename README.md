@@ -4,6 +4,10 @@ One human, one identity, without revealing who. A person enrolls a commitment de
 verifier credential; dApps later ask for proof of personhood via CPI and get a per-dApp nullifier
 (replay guard) instead of a global identifier.
 
+## Devnet deployment
+- `contract` (registry): `CBFyoQadDRk2hUaCLszQka4Vc31VMaLggo1Fua7ajyqd`
+- `mock_consumer` (demo dApp + demo pass issuer): `74cAJcTVjQmqvAKBSdyv5yup2o3VDx7MHtYMp1n65koE`
+
 ## Instructions
 | Instruction | Who | What |
 |---|---|---|

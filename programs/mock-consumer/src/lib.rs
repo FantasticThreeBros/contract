@@ -5,7 +5,7 @@ use contract::{
     program::Contract,
 };
 
-declare_id!("7ozUsANZ1BiQ6Fxmq6nzP7E5XS5dAcYGZcMiKwHSdqng");
+declare_id!("74cAJcTVjQmqvAKBSdyv5yup2o3VDx7MHtYMp1n65koE");
 
 #[program]
 pub mod mock_consumer {
