@@ -1,7 +1,5 @@
 use anchor_lang::prelude::*;
 
-use anchor_lang::prelude::*;
-
 #[error_code]
 pub enum PassportError {
     #[msg("Signer is not the registry admin")]
@@ -27,5 +25,31 @@ pub enum PassportError {
 
     #[msg("Registry is globally frozen")]
     RegistryFrozen,
-}
 
+    #[msg("Credential account is not owned by the registered verifier program")]
+    InvalidCredentialOwner,
+
+    #[msg("Credential account data could not be parsed")]
+    InvalidCredentialData,
+
+    #[msg("Merkle proof has the wrong length for this tree depth")]
+    InvalidProofLength,
+
+    #[msg("Merkle proof does not match the current registry root")]
+    InvalidMerkleProof,
+
+    #[msg("The Merkle tree is full")]
+    TreeFull,
+
+    #[msg("Invalid tree depth")]
+    InvalidTreeDepth,
+
+    #[msg("Enrollment does not belong to the signing wallet")]
+    WalletMismatch,
+
+    #[msg("verify_personhood must be invoked via CPI from a consuming program")]
+    NotCalledViaCpi,
+
+    #[msg("consuming_program_id does not match the calling program")]
+    ConsumerMismatch,
+}

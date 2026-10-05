@@ -895,8 +895,10 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "litesvm",
+ "solana-instructions-sysvar",
  "solana-keypair",
  "solana-message",
+ "solana-sha256-hasher",
  "solana-signer",
  "solana-transaction",
 ]
@@ -1763,6 +1765,14 @@ dependencies = [
  "keccak",
  "rand_core 0.6.4",
  "zeroize",
+]
+
+[[package]]
+name = "mock-consumer"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "contract",
 ]
 
 [[package]]
