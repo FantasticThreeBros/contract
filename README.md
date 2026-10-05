@@ -4,6 +4,43 @@ One human, one identity, without revealing who. A person enrolls a commitment de
 verifier credential; dApps later ask for proof of personhood via CPI and get a per-dApp nullifier
 (replay guard) instead of a global identifier.
 
+
+
+Signature: bXnqqn2bB1Mwz3FSZSCrC8SfXPj6MCyqLCfhJhXYitpBAiN4RuJgQMcWFW88v1PYHs9rzzZjfaC87UQaCDWMXAK
+Program ID: 6yH5EwvxmJbKoVgYPni6NMaLwNChgen23CkF9omvYbDE
+
+Writing metadata account...
+ ├─ metadata: 6WN6HMGgzEgeb2tuBBbwc1M2MLgTMjD829EsJvMpQoNc
+ ├─ program: 6yH5EwvxmJbKoVgYPni6NMaLwNChgen23CkF9omvYbDE
+ └─ seed: idl
+
+[Success] Operation executed successfully
+IDL initialized.
+✓ Idl metadata created/updated
+Deploying program "mock_consumer"...
+Program path: /Users/dhruvilpatel/Developer/capstone/contract/target/deploy/mock_consumer.so...
+Program already exists, upgrading...
+Sending upgrade transaction...
+Signature: 61bqimKRrRdyXuVYBQoZeZcZAmFqCyuigCrj4KBAwVNJxn2FiXuU4AasDYbx7tdYP3MxpoWd4uQwQpHwG3rz1u3J
+Program ID: 7ZBun553WhQd3iruZoxvDPj46uDjY4bsZZGqa2Aw7i68
+
+Writing metadata account...
+ ├─ metadata: 6k51Wr2oQX5ULySe7hZTYkCjzagRxXH22Lrtiz9MP87c
+ ├─ program: 7ZBun553WhQd3iruZoxvDPj46uDjY4bsZZGqa2Aw7i68
+ └─ seed: idl
+
+[Success] Operation executed successfully
+IDL initialized.
+✓ Idl metadata created/updated
+Deploy success
+
+
+
+
+
+
+
+
 ## Instructions
 | Instruction | Who | What |
 |---|---|---|

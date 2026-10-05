@@ -5,20 +5,20 @@ package_manager = "pnpm"
 resolution = true
 skip-lint = false
 
-[programs.localnet]
-contract = "JAmQdpmj99JLsWK2pntXKmU8fz228W5dKva6VNqpkcSi"
-mock_consumer = "7ozUsANZ1BiQ6Fxmq6nzP7E5XS5dAcYGZcMiKwHSdqng"
-
 [programs.devnet]
 contract = "JAmQdpmj99JLsWK2pntXKmU8fz228W5dKva6VNqpkcSi"
 mock_consumer = "7ozUsANZ1BiQ6Fxmq6nzP7E5XS5dAcYGZcMiKwHSdqng"
+
+[programs.localnet]
+contract = "6yH5EwvxmJbKoVgYPni6NMaLwNChgen23CkF9omvYbDE"
+mock_consumer = "7ZBun553WhQd3iruZoxvDPj46uDjY4bsZZGqa2Aw7i68"
 
 [provider]
 cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "pnpm exec ts-mocha -p ./tsconfig.json -t 1000000 \"tests/**/*.ts\""
 demo = "pnpm exec ts-node -P ./tsconfig.json client/demo.ts"
+test = "pnpm exec ts-mocha -p ./tsconfig.json -t 1000000 \"tests/**/*.ts\""
 
 [hooks]
