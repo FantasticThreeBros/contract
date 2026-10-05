@@ -17,23 +17,57 @@ describe("contract (passport)", () => {
   const admin = provider.wallet.publicKey;
   const P = pdas(passport.programId);
 
-  const verifierProgram = Keypair.generate().publicKey; // stand-in for the Reclaim verifier
+  // In production the verifier is Civic's gateway program (gatem74V...) and the network is
+  // the Uniqueness Pass network. Here the mock program issues passes in Civic's exact layout.
+  const verifierProgram = consumer.programId;
+  const NETWORK = new anchor.web3.PublicKey("uniqobk8oGh4XBLMqM68K8M2zNu3CdYX7q5go7whQiv");
+  const FAKE_NETWORK = Keypair.generate().publicKey; // an attacker-created network
   const tree = new SparseTree();
 
-  async function newUser(owner: PK = verifierProgram): Promise<User> {
+  const demoPass = (wallet: PK, network: PK) =>
+    anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("demo_pass"), wallet.toBuffer(), network.toBuffer()],
+      consumer.programId
+    )[0];
+
+  const FAR_FUTURE = 4_102_444_800; // year 2100
+
+  /** Funded wallet + a Civic-layout pass issued to it. */
+  async function newUser(
+    opts: { network?: PK; state?: number; expire?: number | null } = {}
+  ): Promise<User> {
+    const network = opts.network ?? NETWORK;
     const wallet = Keypair.generate();
-    const credential = Keypair.generate();
+    const credential = demoPass(wallet.publicKey, network);
+    const expire = opts.expire === undefined ? FAR_FUTURE : opts.expire;
     const tx = new Transaction().add(
       SystemProgram.transfer({ fromPubkey: admin, toPubkey: wallet.publicKey, lamports: 50_000_000 }),
-      SystemProgram.createAccount({
-        fromPubkey: admin,
-        newAccountPubkey: credential.publicKey,
-        lamports: await provider.connection.getMinimumBalanceForRentExemption(8),
-        space: 8,
-        programId: owner,
-      })
+      await consumer.methods
+        .issueDemoPass(wallet.publicKey, network, opts.state ?? 0, expire === null ? null : new anchor.BN(expire))
+        .accountsPartial({ payer: admin, pass: credential })
+        .instruction()
     );
-    await provider.sendAndConfirm(tx, [credential]);
+    await provider.sendAndConfirm(tx, []);
+    return { wallet, credential, commitment: commitmentOf(credential) };
+  }
+
+  /** An account NOT owned by the verifier program. */
+  async function newForeignCredential(): Promise<User> {
+    const wallet = Keypair.generate();
+    const credential = Keypair.generate();
+    await provider.sendAndConfirm(
+      new Transaction().add(
+        SystemProgram.transfer({ fromPubkey: admin, toPubkey: wallet.publicKey, lamports: 50_000_000 }),
+        SystemProgram.createAccount({
+          fromPubkey: admin,
+          newAccountPubkey: credential.publicKey,
+          lamports: await provider.connection.getMinimumBalanceForRentExemption(109),
+          space: 109,
+          programId: SystemProgram.programId,
+        })
+      ),
+      [credential]
+    );
     return { wallet, credential: credential.publicKey, commitment: commitmentOf(credential.publicKey) };
   }
 
@@ -110,18 +144,19 @@ describe("contract (passport)", () => {
       );
       await expectFail(
         passport.methods
-          .registerVerifier(verifierProgram, true)
+          .registerVerifier(verifierProgram, NETWORK, true)
           .accountsPartial({ admin: mallory.publicKey, registry: P.registry, verifierConfig: P.verifierConfig(verifierProgram) })
           .signers([mallory])
           .rpc(),
         "Unauthorized"
       );
       await passport.methods
-        .registerVerifier(verifierProgram, true)
+        .registerVerifier(verifierProgram, NETWORK, true)
         .accountsPartial({ registry: P.registry, verifierConfig: P.verifierConfig(verifierProgram) })
         .rpc();
       const v = await passport.account.verifierConfig.fetch(P.verifierConfig(verifierProgram));
       expect(v.isActive).to.equal(true);
+      expect(v.gatekeeperNetwork.equals(NETWORK)).to.equal(true);
     });
   });
 
@@ -135,6 +170,8 @@ describe("contract (passport)", () => {
       const rec = await passport.account.enrollmentRecord.fetch(P.enrollment(alice.commitment));
       expect(rec.leafIndex).to.equal(0);
       expect(rec.wallet.equals(alice.wallet.publicKey)).to.equal(true);
+      expect(rec.credential.equals(alice.credential)).to.equal(true);
+      expect(rec.enrolledAt.toNumber()).to.be.greaterThan(0);
     });
 
     it("rejects a duplicate enrollment with AlreadyEnrolled", async () => {
@@ -142,7 +179,25 @@ describe("contract (passport)", () => {
     });
 
     it("rejects a credential not owned by the verifier program", async () => {
-      await expectFail(enroll(await newUser(SystemProgram.programId)).rpc(), "InvalidCredentialOwner");
+      await expectFail(enroll(await newForeignCredential()).rpc(), "InvalidCredentialOwner");
+    });
+
+    it("rejects a pass issued by an untrusted (attacker-made) network", async () => {
+      await expectFail(enroll(await newUser({ network: FAKE_NETWORK })).rpc(), "InvalidCredentialNetwork");
+    });
+
+    it("rejects a revoked or frozen pass", async () => {
+      await expectFail(enroll(await newUser({ state: 2 })).rpc(), "CredentialNotActive");
+      await expectFail(enroll(await newUser({ state: 1 })).rpc(), "CredentialNotActive");
+    });
+
+    it("rejects an expired pass", async () => {
+      await expectFail(enroll(await newUser({ expire: 1_600_000_000 })).rpc(), "CredentialExpired");
+    });
+
+    it("rejects enrolling with someone else's pass (WalletMismatch)", async () => {
+      const mallory = await newUser();
+      await expectFail(enroll({ ...alice, wallet: mallory.wallet }).rpc(), "WalletMismatch");
     });
 
     it("rejects a forged Merkle proof", async () => {
@@ -159,7 +214,7 @@ describe("contract (passport)", () => {
     it("rejects an inactive verifier, accepts it again once reactivated", async () => {
       const setActive = (a: boolean) =>
         passport.methods
-          .registerVerifier(verifierProgram, a)
+          .registerVerifier(verifierProgram, NETWORK, a)
           .accountsPartial({ registry: P.registry, verifierConfig: P.verifierConfig(verifierProgram) })
           .rpc();
       await setActive(false);
@@ -267,7 +322,7 @@ describe("contract (passport)", () => {
     it("registry freeze blocks enroll and verify; unfreezing restores them", async () => {
       const setFrozen = (f: boolean) =>
         passport.methods.setRegistryFrozen(f).accountsPartial({ registry: P.registry }).rpc();
-      const dave = await newUser();
+      const dave = await newUser({ expire: null }); // also covers a pass with no expiry
       await setFrozen(true);
       await expectFail(enroll(dave).rpc(), "RegistryFrozen");
       await expectFail(gatedAction(bob, 1), "RegistryFrozen");

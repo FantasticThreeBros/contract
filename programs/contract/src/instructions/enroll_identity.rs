@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    credential::{CredentialReader, ReclaimCredential},
+    credential::{CivicGatewayToken, CredentialReader},
     error::PassportError,
     merkle::{self, Node, EMPTY_LEAF},
     EnrollmentRecord, RegistryConfig, VerifierConfig, ENROLLMENT_SEED, REGISTRY_SEED,
@@ -67,11 +67,23 @@ impl<'info> EnrollIdentity<'info> {
     ) -> Result<()> {
         require!(!self.registry.is_frozen, PassportError::RegistryFrozen);
 
-        // Step 1 happened in the accounts constraint. Parse the layout (stubbed).
-        let parsed = ReclaimCredential::parse(&self.credential_account.try_borrow_data()?)?;
-        if let Some(subject) = parsed.subject() {
-            require_keys_eq!(subject, self.wallet.key(), PassportError::WalletMismatch);
+        // Step 1 (owner == verifier program) happened in the accounts constraint. Now parse
+        // the credential and enforce everything the owner check alone cannot:
+        let cred = CivicGatewayToken::parse(&self.credential_account.try_borrow_data()?)?;
+        // pinned issuing network (else anyone can mint a pass on their own network)
+        require_keys_eq!(
+            cred.network,
+            self.verifier_config.gatekeeper_network,
+            PassportError::InvalidCredentialNetwork
+        );
+        // active, not frozen/revoked
+        require!(cred.is_active, PassportError::CredentialNotActive);
+        // not expired
+        if let Some(expire_time) = cred.expire_time {
+            require!(Clock::get()?.unix_timestamp <= expire_time, PassportError::CredentialExpired);
         }
+        // issued to the enrolling wallet (stops enrolling with someone else's credential)
+        require_keys_eq!(cred.subject, self.wallet.key(), PassportError::WalletMismatch);
 
         // Step 2: deterministic commitment, derived from the credential.
         require!(
@@ -98,6 +110,8 @@ impl<'info> EnrollIdentity<'info> {
             wallet: self.wallet.key(),
             is_frozen: false,
             bump: bumps.enrollment,
+            enrolled_at: Clock::get()?.unix_timestamp,
+            credential: self.credential_account.key(),
         });
 
         // Step 5.

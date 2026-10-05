@@ -21,9 +21,10 @@ pub struct RegisterVerifier<'info> {
 }
 
 impl<'info> RegisterVerifier<'info> {
-    pub fn register_verifier(&mut self, verifier_key: Pubkey, is_active: bool, bumps : &RegisterVerifierBumps) -> Result<()> {
+    pub fn register_verifier(&mut self, verifier_key: Pubkey, gatekeeper_network: Pubkey, is_active: bool, bumps : &RegisterVerifierBumps) -> Result<()> {
         self.verifier_config.set_inner(VerifierConfig {
             verifier_key: verifier_key,
+            gatekeeper_network,
             is_active: is_active,
             bump: bumps.verifier_config,
         });

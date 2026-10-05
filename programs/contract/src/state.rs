@@ -16,7 +16,11 @@ pub struct RegistryConfig {
 #[account]
 #[derive(InitSpace)]
 pub struct VerifierConfig {
+    /// Program that owns credential accounts (for Civic: the gateway program).
     pub verifier_key: Pubkey,
+    /// The one issuing network / pass type we trust. Without pinning it, anyone could create
+    /// their own network under the same program and mint themselves a valid-looking pass.
+    pub gatekeeper_network: Pubkey,
     pub is_active: bool,
     pub bump: u8,
 }
@@ -32,6 +36,10 @@ pub struct EnrollmentRecord {
     pub wallet: Pubkey,
     pub is_frozen: bool,
     pub bump: u8,
+    /// Unix timestamp of enrollment.
+    pub enrolled_at: i64,
+    /// The verifier credential account this enrollment was derived from (audit trail).
+    pub credential: Pubkey,
 }
 
 #[account]

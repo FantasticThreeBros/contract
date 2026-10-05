@@ -6,12 +6,12 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-contract = "JAmQdpmj99JLsWK2pntXKmU8fz228W5dKva6VNqpkcSi"
-mock_consumer = "7ozUsANZ1BiQ6Fxmq6nzP7E5XS5dAcYGZcMiKwHSdqng"
+contract = "CBFyoQadDRk2hUaCLszQka4Vc31VMaLggo1Fua7ajyqd"
+mock_consumer = "74cAJcTVjQmqvAKBSdyv5yup2o3VDx7MHtYMp1n65koE"
 
 [programs.devnet]
-contract = "JAmQdpmj99JLsWK2pntXKmU8fz228W5dKva6VNqpkcSi"
-mock_consumer = "7ozUsANZ1BiQ6Fxmq6nzP7E5XS5dAcYGZcMiKwHSdqng"
+contract = "CBFyoQadDRk2hUaCLszQka4Vc31VMaLggo1Fua7ajyqd"
+mock_consumer = "74cAJcTVjQmqvAKBSdyv5yup2o3VDx7MHtYMp1n65koE"
 
 [provider]
 cluster = "localnet"
