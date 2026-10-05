@@ -98,6 +98,8 @@ impl<'info> EnrollIdentity<'info> {
             wallet: self.wallet.key(),
             is_frozen: false,
             bump: bumps.enrollment,
+            enrolled_at: Clock::get()?.unix_timestamp,
+            credential: self.credential_account.key(),
         });
 
         // Step 5.

@@ -32,6 +32,10 @@ pub struct EnrollmentRecord {
     pub wallet: Pubkey,
     pub is_frozen: bool,
     pub bump: u8,
+    /// Unix timestamp of enrollment.
+    pub enrolled_at: i64,
+    /// The verifier credential account this enrollment was derived from (audit trail).
+    pub credential: Pubkey,
 }
 
 #[account]

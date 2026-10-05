@@ -135,6 +135,8 @@ describe("contract (passport)", () => {
       const rec = await passport.account.enrollmentRecord.fetch(P.enrollment(alice.commitment));
       expect(rec.leafIndex).to.equal(0);
       expect(rec.wallet.equals(alice.wallet.publicKey)).to.equal(true);
+      expect(rec.credential.equals(alice.credential)).to.equal(true);
+      expect(rec.enrolledAt.toNumber()).to.be.greaterThan(0);
     });
 
     it("rejects a duplicate enrollment with AlreadyEnrolled", async () => {
