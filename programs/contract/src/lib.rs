@@ -21,8 +21,13 @@ pub mod contract {
         ctx.accounts.initialize_registry(&ctx.bumps)
     }
 
-    pub fn register_verifier(ctx: Context<RegisterVerifier>, verifier_key: Pubkey, is_active: bool) -> Result<()> {
-        ctx.accounts.register_verifier(verifier_key, is_active, &ctx.bumps)
+    pub fn register_verifier(
+        ctx: Context<RegisterVerifier>,
+        verifier_key: Pubkey,
+        gatekeeper_network: Pubkey,
+        is_active: bool,
+    ) -> Result<()> {
+        ctx.accounts.register_verifier(verifier_key, gatekeeper_network, is_active, &ctx.bumps)
     }
 
     pub fn enroll_identity(

@@ -52,4 +52,13 @@ pub enum PassportError {
 
     #[msg("consuming_program_id does not match the calling program")]
     ConsumerMismatch,
+
+    #[msg("Credential was issued by a different network than the one this verifier trusts")]
+    InvalidCredentialNetwork,
+
+    #[msg("Credential is not active (frozen or revoked)")]
+    CredentialNotActive,
+
+    #[msg("Credential has expired")]
+    CredentialExpired,
 }

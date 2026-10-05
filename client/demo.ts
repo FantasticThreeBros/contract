@@ -1,5 +1,6 @@
 // End-to-end demo: admin setup -> enroll -> gated dApp action via CPI -> replay blocked.
-// Run against devnet:  ANCHOR_PROVIDER_URL=https://api.devnet.solana.com pnpm demo
+// Default: the mock program issues a pass in Civic's exact layout (no real Civic pass needed).
+// REAL_CIVIC=1: use the admin wallet's REAL Civic pass instead (set CIVIC_NETWORK to its network).
 import * as anchor from "@anchor-lang/core";
 import { Program } from "@anchor-lang/core";
 import * as fs from "fs";
@@ -23,8 +24,12 @@ async function main() {
   const link = (sig: string) => `https://explorer.solana.com/tx/${sig}${cluster}`;
   const step = (s: string) => console.log(`\n== ${s}`);
 
-  // Stand-in for the external verifier program (Reclaim) whose credential accounts we trust.
-  const verifier = Keypair.fromSeed(sha256(Buffer.from("passport-demo-verifier"))).publicKey;
+  const GATEWAY = new anchor.web3.PublicKey("gatem74V238djXdzWnJf94Wo1DcnuGkfijbf3AuBhfs"); // Civic
+  const UNIQUENESS = "uniqobk8oGh4XBLMqM68K8M2zNu3CdYX7q5go7whQiv";
+  const real = process.env.REAL_CIVIC === "1";
+  const network = new anchor.web3.PublicKey(process.env.CIVIC_NETWORK ?? UNIQUENESS);
+  // Who owns credential accounts: Civic's gateway program, or our mock issuer.
+  const verifier = real ? GATEWAY : consumer.programId;
 
   step("1. Admin setup (idempotent)");
   if (!(await provider.connection.getAccountInfo(P.registry))) {
@@ -32,28 +37,45 @@ async function main() {
     console.log("registry initialized", link(sig));
   } else console.log("registry already initialized");
   const sig = await passport.methods
-    .registerVerifier(verifier, true)
+    .registerVerifier(verifier, network, true)
     .accountsPartial({ registry: P.registry, verifierConfig: P.verifierConfig(verifier) })
     .rpc();
-  console.log("verifier registered + active", link(sig));
+  console.log(`verifier registered (${real ? "Civic gateway" : "mock issuer"}), network pinned: ${network.toBase58()}`, link(sig));
 
-  step("2. A new human obtains a credential and enrolls");
-  const wallet = Keypair.generate();
-  const credential = Keypair.generate();
-  await provider.sendAndConfirm(
-    new Transaction().add(
-      SystemProgram.transfer({ fromPubkey: admin, toPubkey: wallet.publicKey, lamports: 20_000_000 }),
-      SystemProgram.createAccount({
-        fromPubkey: admin,
-        newAccountPubkey: credential.publicKey,
-        lamports: await provider.connection.getMinimumBalanceForRentExemption(8),
-        space: 8,
-        programId: verifier, // account owned by the trusted verifier program
-      })
-    ),
-    [credential]
-  );
-  const commitment = commitmentOf(credential.publicKey);
+  step("2. A human holds a pass and enrolls");
+  let wallet: anchor.web3.Keypair;
+  let credential: anchor.web3.PublicKey;
+  if (real) {
+    // Civic's pass PDA: [wallet, "gateway", 8 zero bytes (no extra seed), network]
+    wallet = (provider.wallet as anchor.Wallet & { payer: anchor.web3.Keypair }).payer;
+    credential = anchor.web3.PublicKey.findProgramAddressSync(
+      [wallet.publicKey.toBuffer(), Buffer.from("gateway"), Buffer.alloc(8), network.toBuffer()],
+      GATEWAY
+    )[0];
+    if (!(await provider.connection.getAccountInfo(credential))) {
+      console.error(`No Civic pass for ${wallet.publicKey} on network ${network}. Get one via Civic, then retry.`);
+      process.exit(1);
+    }
+    console.log("using real Civic pass", credential.toBase58());
+  } else {
+    wallet = Keypair.generate();
+    credential = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("demo_pass"), wallet.publicKey.toBuffer(), network.toBuffer()],
+      consumer.programId
+    )[0];
+    await provider.sendAndConfirm(
+      new Transaction().add(
+        SystemProgram.transfer({ fromPubkey: admin, toPubkey: wallet.publicKey, lamports: 20_000_000 }),
+        await consumer.methods
+          .issueDemoPass(wallet.publicKey, network, 0, new anchor.BN(4_102_444_800))
+          .accountsPartial({ payer: admin, pass: credential })
+          .instruction()
+      ),
+      []
+    );
+    console.log("issued demo pass", credential.toBase58());
+  }
+  const commitment = commitmentOf(credential);
   const tree = await rebuildTree(passport as Program<any>); // off-chain tree rebuilt from chain state
   const next = tree.count;
   const enrollSig = await passport.methods
@@ -61,7 +83,7 @@ async function main() {
     .accountsPartial({
       wallet: wallet.publicKey,
       verifierConfig: P.verifierConfig(verifier),
-      credentialAccount: credential.publicKey,
+      credentialAccount: credential,
       registry: P.registry,
       enrollment: P.enrollment(commitment),
     })
