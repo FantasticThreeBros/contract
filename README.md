@@ -8,6 +8,18 @@ verifier credential; dApps later ask for proof of personhood via CPI and get a p
 - `contract` (registry): `6yH5EwvxmJbKoVgYPni6NMaLwNChgen23CkF9omvYbDE`
 - `mock_consumer` (demo dApp + demo pass issuer): `7ZBun553WhQd3iruZoxvDPj46uDjY4bsZZGqa2Aw7i68`
 
+## Upgrading the devnet deployment (needs the upgrade-authority wallet)
+The programs on devnet (ids above) are upgraded in place; existing registry, enrollments and
+nullifiers stay valid (rehearsed locally: old build with legacy state, upgrade, then enroll + verify).
+```bash
+anchor build && anchor deploy --provider.cluster devnet        # upgrade authority wallet
+```
+Then, as the **registry admin**, register the trusted issuers (Admin tab, or `register_verifier`):
+the demo issuer (`mock_consumer`) + Uniqueness network, and/or the Civic gateway + Uniqueness network.
+Notes: `VerifierConfig` is now keyed by `(verifier, network)`, so configs registered by the previous
+version are unused; old-layout enrollment records still count in the Merkle tree but treat them as
+test data and enroll fresh.
+
 ## Instructions
 | Instruction | Who | What |
 |---|---|---|
