@@ -15,7 +15,11 @@ pub struct EnrollIdentity<'info> {
     pub wallet: Signer<'info>,
 
     #[account(
-        seeds = [VERIFIER_CONFIG_SEED, verifier_config.verifier_key.as_ref()],
+        seeds = [
+            VERIFIER_CONFIG_SEED,
+            verifier_config.verifier_key.as_ref(),
+            verifier_config.gatekeeper_network.as_ref()
+        ],
         bump = verifier_config.bump,
         constraint = verifier_config.is_active @ PassportError::VerifierNotActive
     )]

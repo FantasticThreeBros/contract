@@ -5,8 +5,8 @@ verifier credential; dApps later ask for proof of personhood via CPI and get a p
 (replay guard) instead of a global identifier.
 
 ## Devnet deployment
-- `contract` (registry): `CBFyoQadDRk2hUaCLszQka4Vc31VMaLggo1Fua7ajyqd`
-- `mock_consumer` (demo dApp + demo pass issuer): `74cAJcTVjQmqvAKBSdyv5yup2o3VDx7MHtYMp1n65koE`
+- `contract` (registry): `6yH5EwvxmJbKoVgYPni6NMaLwNChgen23CkF9omvYbDE`
+- `mock_consumer` (demo dApp + demo pass issuer): `7ZBun553WhQd3iruZoxvDPj46uDjY4bsZZGqa2Aw7i68`
 
 ## Instructions
 | Instruction | Who | What |

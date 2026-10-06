@@ -71,12 +71,12 @@ describe("contract (passport)", () => {
     return { wallet, credential: credential.publicKey, commitment: commitmentOf(credential.publicKey) };
   }
 
-  const enroll = (u: User, opts: { proof?: number[][]; verifier?: PK } = {}) =>
+  const enroll = (u: User, opts: { proof?: number[][]; verifier?: PK; network?: PK } = {}) =>
     passport.methods
       .enrollIdentity([...u.commitment], opts.proof ?? tree.proof(tree.count))
       .accountsPartial({
         wallet: u.wallet.publicKey,
-        verifierConfig: P.verifierConfig(opts.verifier ?? verifierProgram),
+        verifierConfig: P.verifierConfig(opts.verifier ?? verifierProgram, opts.network ?? NETWORK),
         credentialAccount: u.credential,
         registry: P.registry,
         enrollment: P.enrollment(u.commitment),
@@ -145,16 +145,16 @@ describe("contract (passport)", () => {
       await expectFail(
         passport.methods
           .registerVerifier(verifierProgram, NETWORK, true)
-          .accountsPartial({ admin: mallory.publicKey, registry: P.registry, verifierConfig: P.verifierConfig(verifierProgram) })
+          .accountsPartial({ admin: mallory.publicKey, registry: P.registry, verifierConfig: P.verifierConfig(verifierProgram, NETWORK) })
           .signers([mallory])
           .rpc(),
         "Unauthorized"
       );
       await passport.methods
         .registerVerifier(verifierProgram, NETWORK, true)
-        .accountsPartial({ registry: P.registry, verifierConfig: P.verifierConfig(verifierProgram) })
+        .accountsPartial({ registry: P.registry, verifierConfig: P.verifierConfig(verifierProgram, NETWORK) })
         .rpc();
-      const v = await passport.account.verifierConfig.fetch(P.verifierConfig(verifierProgram));
+      const v = await passport.account.verifierConfig.fetch(P.verifierConfig(verifierProgram, NETWORK));
       expect(v.isActive).to.equal(true);
       expect(v.gatekeeperNetwork.equals(NETWORK)).to.equal(true);
     });
@@ -186,6 +186,11 @@ describe("contract (passport)", () => {
       await expectFail(enroll(await newUser({ network: FAKE_NETWORK })).rpc(), "InvalidCredentialNetwork");
     });
 
+    it("rejects a network the admin never registered (no config exists)", async () => {
+      const rogue = await newUser({ network: FAKE_NETWORK });
+      await expectFail(enroll(rogue, { network: FAKE_NETWORK }).rpc(), "AccountNotInitialized");
+    });
+
     it("rejects a revoked or frozen pass", async () => {
       await expectFail(enroll(await newUser({ state: 2 })).rpc(), "CredentialNotActive");
       await expectFail(enroll(await newUser({ state: 1 })).rpc(), "CredentialNotActive");
@@ -215,7 +220,7 @@ describe("contract (passport)", () => {
       const setActive = (a: boolean) =>
         passport.methods
           .registerVerifier(verifierProgram, NETWORK, a)
-          .accountsPartial({ registry: P.registry, verifierConfig: P.verifierConfig(verifierProgram) })
+          .accountsPartial({ registry: P.registry, verifierConfig: P.verifierConfig(verifierProgram, NETWORK) })
           .rpc();
       await setActive(false);
       await expectFail(enroll(bob).rpc(), "VerifierNotActive");

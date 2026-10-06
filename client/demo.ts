@@ -38,7 +38,7 @@ async function main() {
   } else console.log("registry already initialized");
   const sig = await passport.methods
     .registerVerifier(verifier, network, true)
-    .accountsPartial({ registry: P.registry, verifierConfig: P.verifierConfig(verifier) })
+    .accountsPartial({ registry: P.registry, verifierConfig: P.verifierConfig(verifier, network) })
     .rpc();
   console.log(`verifier registered (${real ? "Civic gateway" : "mock issuer"}), network pinned: ${network.toBase58()}`, link(sig));
 
@@ -82,7 +82,7 @@ async function main() {
     .enrollIdentity([...commitment], tree.proof(next))
     .accountsPartial({
       wallet: wallet.publicKey,
-      verifierConfig: P.verifierConfig(verifier),
+      verifierConfig: P.verifierConfig(verifier, network),
       credentialAccount: credential,
       registry: P.registry,
       enrollment: P.enrollment(commitment),
