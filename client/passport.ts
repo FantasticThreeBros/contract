@@ -57,7 +57,7 @@ export class SparseTree {
 
 export interface Pdas {
   registry: anchor.web3.PublicKey;
-  verifierConfig: (verifierKey: anchor.web3.PublicKey) => anchor.web3.PublicKey;
+  verifierConfig: (verifierKey: anchor.web3.PublicKey, network: anchor.web3.PublicKey) => anchor.web3.PublicKey;
   enrollment: (commitment: Buffer) => anchor.web3.PublicKey;
   nullifier: (consumer: anchor.web3.PublicKey, commitment: Buffer) => anchor.web3.PublicKey;
 }
@@ -66,20 +66,30 @@ export function pdas(programId: anchor.web3.PublicKey): Pdas {
   const find = (seeds: (Buffer | Uint8Array)[]) => anchor.web3.PublicKey.findProgramAddressSync(seeds, programId)[0];
   return {
     registry: find([Buffer.from("registry")]),
-    verifierConfig: (k) => find([Buffer.from("verifier_config"), k.toBuffer()]),
+    verifierConfig: (k, n) => find([Buffer.from("verifier_config"), k.toBuffer(), n.toBuffer()]),
     enrollment: (c) => find([Buffer.from("enrollment"), c]),
     nullifier: (consumer, c) => find([Buffer.from("nullifier"), consumer.toBuffer(), c]),
   };
 }
 
-/** Rebuild the off-chain tree from on-chain EnrollmentRecords (a mini indexer). */
+/**
+ * Rebuild the off-chain tree from on-chain EnrollmentRecords (a mini indexer).
+ * Reads only the byte prefix every layout version shares, [discriminator 8][commitment 32]
+ * [leaf_index u32 LE], so records written by older program versions still count.
+ */
 export async function rebuildTree(program: anchor.Program<any>): Promise<SparseTree> {
+  const disc: number[] = (program.idl as any).accounts.find((a: any) => a.name.toLowerCase() === "enrollmentrecord").discriminator;
+  const accounts = await program.provider.connection.getProgramAccounts(program.programId, {
+    filters: [{ memcmp: { offset: 0, bytes: anchor.utils.bytes.bs58.encode(Buffer.from(disc)) } }],
+    dataSlice: { offset: 0, length: 44 },
+  });
+  const leaves = accounts
+    .map((a) => ({ index: Buffer.from(a.account.data).readUInt32LE(40), commitment: Buffer.from(a.account.data).subarray(8, 40) }))
+    .sort((x, y) => x.index - y.index);
   const tree = new SparseTree();
-  const records = (await (program.account as any).enrollmentRecord.all()) as any[];
-  records.sort((a, b) => a.account.leafIndex - b.account.leafIndex);
-  for (const r of records) {
-    if (r.account.leafIndex !== tree.count) throw new Error("gap in leaf indices; cannot rebuild tree");
-    tree.append(Buffer.from(r.account.commitment));
+  for (const l of leaves) {
+    if (l.index !== tree.count) throw new Error("gap in leaf indices; cannot rebuild tree");
+    tree.append(Buffer.from(l.commitment));
   }
   return tree;
 }

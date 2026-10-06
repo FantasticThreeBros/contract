@@ -5,7 +5,7 @@ use crate::{
 };
 
 #[derive(Accounts)]
-#[instruction(verifier_key: Pubkey)]
+#[instruction(verifier_key: Pubkey, gatekeeper_network: Pubkey)]
 pub struct RegisterVerifier<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
@@ -14,16 +14,20 @@ pub struct RegisterVerifier<'info> {
     pub registry: Account<'info, RegistryConfig>,
 
     #[account(init_if_needed,
-        payer = admin, space = 8 + VerifierConfig::INIT_SPACE, seeds = [VERIFIER_CONFIG_SEED,verifier_key.as_ref()],bump)]
+        payer = admin, space = 8 + VerifierConfig::INIT_SPACE, seeds = [VERIFIER_CONFIG_SEED, verifier_key.as_ref(), gatekeeper_network.as_ref()], bump)]
+    /// One config per (verifier program, issuing network) pair: the network is part of the
+    /// address, so trusting a network is an explicit admin act, and a verifier can trust
+    /// several networks (e.g. Uniqueness and Liveness) independently.
     pub verifier_config: Account<'info, VerifierConfig>,
 
     pub system_program: Program<'info, System>,
 }
 
 impl<'info> RegisterVerifier<'info> {
-    pub fn register_verifier(&mut self, verifier_key: Pubkey, is_active: bool, bumps : &RegisterVerifierBumps) -> Result<()> {
+    pub fn register_verifier(&mut self, verifier_key: Pubkey, gatekeeper_network: Pubkey, is_active: bool, bumps : &RegisterVerifierBumps) -> Result<()> {
         self.verifier_config.set_inner(VerifierConfig {
             verifier_key: verifier_key,
+            gatekeeper_network,
             is_active: is_active,
             bump: bumps.verifier_config,
         });
