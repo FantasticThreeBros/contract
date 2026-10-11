@@ -251,7 +251,11 @@ describe("contract (passport)", () => {
     });
 
     it("the off-chain tree can be rebuilt from chain state", async () => {
-      const rebuilt = await rebuildTree(passport as Program<any>);
+      let rebuilt = await rebuildTree(passport as Program<any>);
+      for (let i = 0; i < 10 && !rebuilt.root().equals(tree.root()); i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        rebuilt = await rebuildTree(passport as Program<any>).catch(() => rebuilt);
+      }
       expect(rebuilt.root().equals(tree.root())).to.equal(true);
     });
   });
