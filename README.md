@@ -16,6 +16,10 @@ Capstone project, Turbine cohort. Team: Fantastic 3.
 | `contract` (the registry) | [`6yH5EwvxmJbKoVgYPni6NMaLwNChgen23CkF9omvYbDE`](https://explorer.solana.com/address/6yH5EwvxmJbKoVgYPni6NMaLwNChgen23CkF9omvYbDE?cluster=devnet) |
 | `mock_consumer` (demo app + demo pass issuer) | [`7ZBun553WhQd3iruZoxvDPj46uDjY4bsZZGqa2Aw7i68`](https://explorer.solana.com/address/7ZBun553WhQd3iruZoxvDPj46uDjY4bsZZGqa2Aw7i68?cluster=devnet) |
 
+## Demo Video
+
+- **Video Walkthrough & Presentation:** [https://youtu.be/6Q3gaBr8Qc4](https://youtu.be/6Q3gaBr8Qc4)
+
 ## Problem and solution
 
 Wallets are free, so one person can look like a thousand: airdrops get farmed, votes get skewed. The usual
