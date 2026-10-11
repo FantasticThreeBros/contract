@@ -52,4 +52,4 @@
 
 **What would you do next?** Zero-knowledge membership proofs, a concurrent Merkle tree, and a real Civic Uniqueness Pass run end to end.
 
-**How many tests?** 24 integration tests plus 5 unit tests, including attacker cases: untrusted network, revoked or expired pass, someone else's pass, replay, missing signature, direct non-CPI call, forged proof.
+**How many tests?** 25 integration tests plus 5 unit tests, including attacker cases: untrusted network, revoked or expired pass, someone else's pass, replay, missing signature, direct non-CPI call, forged proof.
