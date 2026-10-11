@@ -22,7 +22,10 @@ describe("contract (passport)", () => {
   const verifierProgram = consumer.programId;
   const NETWORK = new anchor.web3.PublicKey("uniqobk8oGh4XBLMqM68K8M2zNu3CdYX7q5go7whQiv");
   const FAKE_NETWORK = Keypair.generate().publicKey; // an attacker-created network
-  const tree = new SparseTree();
+  // Devnet-safe: the registry may already exist with enrollments from earlier runs, so the tree is
+  // rebuilt from chain state in before() and every leaf index below is relative to `base`.
+  let tree = new SparseTree();
+  let base = 0;
 
   const demoPass = (wallet: PK, network: PK) =>
     anchor.web3.PublicKey.findProgramAddressSync(
@@ -121,14 +124,24 @@ describe("contract (passport)", () => {
   let alice: User, bob: User, carol: User;
 
   before(async () => {
+    if (!(await provider.connection.getAccountInfo(P.registry))) {
+      await passport.methods.initializeRegistry().accountsPartial({ registry: P.registry }).rpc();
+    } else {
+      const reg = await passport.account.registryConfig.fetch(P.registry);
+      if (!reg.admin.equals(admin)) {
+        throw new Error(`The registry already exists and its admin is ${reg.admin.toBase58()}. Run these tests with that wallet (ANCHOR_WALLET), or on a fresh cluster.`);
+      }
+      if (reg.isFrozen) await passport.methods.setRegistryFrozen(false).accountsPartial({ registry: P.registry }).rpc();
+      tree = await rebuildTree(passport as Program<any>);
+    }
+    base = tree.count;
     alice = await newUser();
     bob = await newUser();
     carol = await newUser();
   });
 
   describe("admin setup", () => {
-    it("initialize_registry stores the empty-tree root", async () => {
-      await passport.methods.initializeRegistry().accountsPartial({ registry: P.registry }).rpc();
+    it("registry is initialized and its root matches the off-chain tree", async () => {
       const reg = await passport.account.registryConfig.fetch(P.registry);
       expect(Buffer.from(reg.merkleRoot).equals(tree.root())).to.equal(true);
       expect(reg.admin.equals(admin)).to.equal(true);
@@ -166,9 +179,9 @@ describe("contract (passport)", () => {
       tree.append(alice.commitment);
       const reg = await passport.account.registryConfig.fetch(P.registry);
       expect(Buffer.from(reg.merkleRoot).equals(tree.root())).to.equal(true);
-      expect(reg.nextLeafIndex).to.equal(1);
+      expect(reg.nextLeafIndex).to.equal(base + 1);
       const rec = await passport.account.enrollmentRecord.fetch(P.enrollment(alice.commitment));
-      expect(rec.leafIndex).to.equal(0);
+      expect(rec.leafIndex).to.equal(base);
       expect(rec.wallet.equals(alice.wallet.publicKey)).to.equal(true);
       expect(rec.credential.equals(alice.credential)).to.equal(true);
       expect(rec.enrolledAt.toNumber()).to.be.greaterThan(0);
@@ -206,7 +219,7 @@ describe("contract (passport)", () => {
     });
 
     it("rejects a forged Merkle proof", async () => {
-      const bad = tree.proof(1);
+      const bad = tree.proof(tree.count);
       bad[0][0] ^= 0xff;
       await expectFail(enroll(bob, { proof: bad }).rpc(), "InvalidMerkleProof");
     });
@@ -234,33 +247,37 @@ describe("contract (passport)", () => {
       }
       const reg = await passport.account.registryConfig.fetch(P.registry);
       expect(Buffer.from(reg.merkleRoot).equals(tree.root())).to.equal(true);
-      expect(reg.nextLeafIndex).to.equal(3);
+      expect(reg.nextLeafIndex).to.equal(base + 3);
     });
 
     it("the off-chain tree can be rebuilt from chain state", async () => {
-      const rebuilt = await rebuildTree(passport as Program<any>);
+      let rebuilt = await rebuildTree(passport as Program<any>);
+      for (let i = 0; i < 10 && !rebuilt.root().equals(tree.root()); i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        rebuilt = await rebuildTree(passport as Program<any>).catch(() => rebuilt);
+      }
       expect(rebuilt.root().equals(tree.root())).to.equal(true);
     });
   });
 
   describe("verify_personhood (via CPI)", () => {
     it("happy path: creates the nullifier", async () => {
-      await gatedAction(alice, 0);
+      await gatedAction(alice, base);
       const n = await passport.account.nullifierRecord.fetch(P.nullifier(consumer.programId, alice.commitment));
       expect(n.createdAt.toNumber()).to.be.greaterThan(0);
     });
 
     it("rejects a replay with NullifierAlreadyUsed", async () => {
-      await expectFail(gatedAction(alice, 0), "NullifierAlreadyUsed");
+      await expectFail(gatedAction(alice, base), "NullifierAlreadyUsed");
     });
 
     it("rejects when the wallet did not sign", async () => {
-      await expectFail(gatedAction(bob, 1, { sign: false }), "signer privilege escalated");
+      await expectFail(gatedAction(bob, base + 1, { sign: false }), "signer privilege escalated");
     });
 
     it("passport's own Signer check fires without the wallet signature", async () => {
       const ix = await passport.methods
-        .verifyPersonhood([...bob.commitment], consumer.programId, tree.proof(1))
+        .verifyPersonhood([...bob.commitment], consumer.programId, tree.proof(base + 1))
         .accountsPartial({
           wallet: bob.wallet.publicKey,
           registry: P.registry,
@@ -275,13 +292,13 @@ describe("contract (passport)", () => {
 
     it("rejects a signer presenting someone else's commitment", async () => {
       const mallory = await newUser();
-      await expectFail(gatedAction({ ...bob, wallet: mallory.wallet }, 1), "WalletMismatch");
+      await expectFail(gatedAction({ ...bob, wallet: mallory.wallet }, base + 1), "WalletMismatch");
     });
 
     it("rejects a direct (non-CPI) call", async () => {
       await expectFail(
         passport.methods
-          .verifyPersonhood([...bob.commitment], consumer.programId, tree.proof(1))
+          .verifyPersonhood([...bob.commitment], consumer.programId, tree.proof(base + 1))
           .accountsPartial({
             wallet: bob.wallet.publicKey,
             registry: P.registry,
@@ -296,9 +313,9 @@ describe("contract (passport)", () => {
     });
 
     it("rejects an invalid Merkle proof", async () => {
-      const bad = tree.proof(1);
+      const bad = tree.proof(base + 1);
       bad[1][0] ^= 0xff;
-      await expectFail(gatedAction(bob, 1, { proof: bad }), "InvalidMerkleProof");
+      await expectFail(gatedAction(bob, base + 1, { proof: bad }), "InvalidMerkleProof");
     });
   });
 
@@ -319,9 +336,9 @@ describe("contract (passport)", () => {
 
     it("a frozen identity fails verification; unfreezing restores it", async () => {
       await freeze(carol, true).rpc();
-      await expectFail(gatedAction(carol, 2), "IdentityFrozen");
+      await expectFail(gatedAction(carol, base + 2), "IdentityFrozen");
       await freeze(carol, false).rpc();
-      await gatedAction(carol, 2);
+      await gatedAction(carol, base + 2);
     });
 
     it("registry freeze blocks enroll and verify; unfreezing restores them", async () => {
@@ -330,11 +347,11 @@ describe("contract (passport)", () => {
       const dave = await newUser({ expire: null }); // also covers a pass with no expiry
       await setFrozen(true);
       await expectFail(enroll(dave).rpc(), "RegistryFrozen");
-      await expectFail(gatedAction(bob, 1), "RegistryFrozen");
+      await expectFail(gatedAction(bob, base + 1), "RegistryFrozen");
       await setFrozen(false);
       await enroll(dave).rpc();
       tree.append(dave.commitment);
-      await gatedAction(bob, 1);
+      await gatedAction(bob, base + 1);
     });
   });
 });
